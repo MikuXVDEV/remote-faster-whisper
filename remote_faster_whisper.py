@@ -27,7 +27,7 @@ from io import BytesIO
 from os.path import exists
 from os import makedirs
 from time import time
-from yaml import safe_load
+import yaml
 from speech_recognition import Recognizer, AudioFile
 from numpy import float32
 from soundfile import read as sf_read
@@ -79,11 +79,11 @@ class FasterWhisperApi:
         def transcribe():
             try:
                 f = request.files["audio_file"]
-            except Exception:
+            except Exception as e:
+                print(f"Error: No 'audio_file' found: {e}") # Log detailed error
                 return {
                     "message": "Request data did not contain an 'audio_file' in its files"
                 }, 400
-
             try:
                 rec = Recognizer()
                 with AudioFile(f) as source:
@@ -103,6 +103,8 @@ class FasterWhisperApi:
                 }, 400
 
             return self.perform_faster_whisper_recognition(audio)
+
+
 
         self.app.register_blueprint(self.blueprint)
 
@@ -178,44 +180,19 @@ class FasterWhisperApi:
         return result
 
 
-def parse_args():
-    """
-    Parse CLI arguments/environment variables (configuration file path)
-    """
-    p = ArgParser()
-    p.add(
-        "-c",
-        "--config",
-        env_var="RFW_CONFIG_FILE",
-        help="Configuration file path",
-        required=True,
-    )
-    options = p.parse_args()
-    return options
-
-
-def parse_config(configfile):
-    """
-    Parse YAML configuration into {config} dictionary
-    """
-    with open(configfile, "r") as fh:
-        config = safe_load(fh)
-
-    return config
-
-
 def start_api():
     """
     Parse arguments, grab configuration, and initialize and start the API
     """
-    options = parse_args()
-    config = parse_config(options.config)
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
     api = FasterWhisperApi(
-        **config["daemon"],
         faster_whisper_config=config["faster_whisper"],
         transformations=config.get("transformations", {}),
     )
     api.start()
+
 
 
 # Main entrypoint
